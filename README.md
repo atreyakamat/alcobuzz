@@ -6,7 +6,7 @@ Production-ready monorepo scaffold for an editorial-first media publishing platf
 
 ```text
 /apps
-  /web                 # Next.js 14 frontend
+  /web                 # Next.js 15 frontend
 /packages
   /ui                  # shared UI primitives
   /lib                 # typed CMS/data/SEO helpers + tests

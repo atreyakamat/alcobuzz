@@ -34,8 +34,20 @@ export function FlipbookViewer({ pdfUrl }: { pdfUrl: string }) {
     });
   }, [doc, page]);
 
-  const next = () => doc && setPage((p) => Math.min(doc.numPages, p + 1));
-  const prev = () => setPage((p) => Math.max(1, p - 1));
+  const atFirstPage = page <= 1;
+  const atLastPage = Boolean(doc && page >= doc.numPages);
+
+  const next = () => {
+    if (!atLastPage && doc) {
+      setPage((p) => Math.min(doc.numPages, p + 1));
+    }
+  };
+
+  const prev = () => {
+    if (!atFirstPage) {
+      setPage((p) => Math.max(1, p - 1));
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -64,9 +76,23 @@ export function FlipbookViewer({ pdfUrl }: { pdfUrl: string }) {
         </AnimatePresence>
       </div>
       <div className="flex items-center justify-between">
-        <button className="rounded border px-4 py-2" onClick={prev}>Previous</button>
+        <button
+          className="rounded border px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={prev}
+          disabled={atFirstPage}
+          aria-disabled={atFirstPage}
+        >
+          Previous
+        </button>
         <span>Page {page}{doc ? ` / ${doc.numPages}` : ''}</span>
-        <button className="rounded border px-4 py-2" onClick={next}>Next</button>
+        <button
+          className="rounded border px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={next}
+          disabled={atLastPage}
+          aria-disabled={atLastPage}
+        >
+          Next
+        </button>
       </div>
     </div>
   );

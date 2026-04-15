@@ -20,8 +20,12 @@ describe('cms helpers', () => {
   test('falls back to local data when CMS fetch throws', async () => {
     const original = global.fetch;
     global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
-    const results = await searchArticles('single malt');
-    expect(results.length).toBeGreaterThan(0);
-    global.fetch = original;
+
+    try {
+      const results = await searchArticles('single malt');
+      expect(results.length).toBeGreaterThan(0);
+    } finally {
+      global.fetch = original;
+    }
   });
 });

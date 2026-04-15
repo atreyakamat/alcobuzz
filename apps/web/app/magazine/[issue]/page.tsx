@@ -22,7 +22,7 @@ export default async function MagazineIssuePage({ params }: { params: Promise<{ 
         <h1 className="font-serif text-5xl">{issue.title}</h1>
         <p>{issue.description}</p>
         <div className="flex gap-3">
-          <a href={issue.pdfUrl} target="_blank" className="rounded bg-black px-4 py-2 text-white">Read online</a>
+          <a href={issue.pdfUrl} target="_blank" rel="noopener noreferrer" className="rounded bg-black px-4 py-2 text-white">Read online</a>
           <Link href={`/magazine/${issue.issue}/read`} className="rounded border px-4 py-2">Open flipbook</Link>
         </div>
       </div>

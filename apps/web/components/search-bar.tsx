@@ -10,7 +10,11 @@ export function SearchBar() {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    router.push(`/search?q=${encodeURIComponent(q)}`);
+    const nextParams = new URLSearchParams();
+    if (q.trim()) {
+      nextParams.set('q', q.trim());
+    }
+    router.push(`/search?${nextParams.toString()}`);
   };
 
   return (

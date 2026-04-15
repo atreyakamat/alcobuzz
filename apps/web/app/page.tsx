@@ -6,13 +6,20 @@ import { NewsletterForm } from '@/components/newsletter-form';
 
 export default async function HomePage() {
   const [allArticles, categories, magazines] = await Promise.all([getArticles(), getCategories(), getMagazines()]);
-  const featured = allArticles[0];
+  const featured = allArticles[0] ?? null;
 
   return (
     <div className="space-y-14">
       <section className="grid gap-6 md:grid-cols-12">
         <article className="md:col-span-8">
-          <ArticleCard article={featured} />
+          {featured ? (
+            <ArticleCard article={featured} />
+          ) : (
+            <div className="rounded border border-black/10 p-6">
+              <h2 className="font-serif text-3xl">No featured article yet</h2>
+              <p className="text-black/70">Publish your first story from CMS to populate the hero section.</p>
+            </div>
+          )}
         </article>
         <aside className="space-y-4 rounded bg-accent/10 p-4 md:col-span-4">
           <h1 className="font-serif text-4xl">Editorial-first. Culture-forward.</h1>

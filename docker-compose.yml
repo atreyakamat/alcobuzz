@@ -1,0 +1,39 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.example
+    depends_on:
+      - cms
+  cms:
+    image: strapi/strapi:latest
+    ports:
+      - "1337:1337"
+    environment:
+      DATABASE_CLIENT: postgres
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: alcobuzz
+      DATABASE_USERNAME: alcobuzz
+      DATABASE_PASSWORD: alcobuzz
+    volumes:
+      - ./cms/strapi:/srv/app
+    depends_on:
+      - db
+  db:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: alcobuzz
+      POSTGRES_USER: alcobuzz
+      POSTGRES_PASSWORD: alcobuzz
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:

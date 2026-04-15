@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist';
 
-GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 export function FlipbookViewer({ pdfUrl }: { pdfUrl: string }) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);

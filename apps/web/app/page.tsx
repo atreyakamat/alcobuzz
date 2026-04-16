@@ -74,9 +74,9 @@ export default async function HomePage() {
 
       <Section title="Magazine Spotlight">
         <div className="grid gap-6 md:grid-cols-2">
-          {magazines.map((issue) => (
+          {magazines.map((issue, index) => (
             <Link key={issue.issue} href={`/magazine/${issue.issue}`} className="rounded-sm border border-black/15 p-6 hover:border-black">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-black/60">Issue of the Month</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-black/60">{index === 0 ? 'Issue of the Month' : 'From the Archive'}</p>
               <h3 className="mt-2 text-3xl">{issue.title}</h3>
               <p className="mt-3 text-black/70">{issue.description}</p>
             </Link>

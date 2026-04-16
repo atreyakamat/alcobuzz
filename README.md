@@ -47,6 +47,7 @@ Use `.env.example`:
 - `WORDPRESS_API_URL`
 - `WORDPRESS_API_USER`
 - `WORDPRESS_API_APP_PASSWORD`
+- `WORDPRESS_MAGAZINE_POST_TYPE` (optional, defaults to `magazine_issue`)
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_GA_ID`
 - `CLOUDINARY_*`

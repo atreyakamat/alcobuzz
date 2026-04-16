@@ -7,7 +7,7 @@ const DEFAULT_ARTICLE_COVER =
   'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=1200&q=80';
 const DEFAULT_MAGAZINE_COVER =
   'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=900&q=80';
-const DEFAULT_MAGAZINE_PDF = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+const DEFAULT_MAGAZINE_PDF = '/placeholder-magazine.pdf';
 const DEFAULT_ARTICLE_TITLE = 'Untitled Story';
 const DEFAULT_MAGAZINE_TITLE = 'Alcobuzz Issue';
 
@@ -57,6 +57,11 @@ function getWordPressConfig() {
     username: process.env.WORDPRESS_API_USER,
     appPassword: process.env.WORDPRESS_API_APP_PASSWORD
   };
+}
+
+
+function getWordPressMagazinePostType(): string {
+  return process.env.WORDPRESS_MAGAZINE_POST_TYPE ?? 'magazine_issue';
 }
 
 function stripHtml(value: string | undefined): string {
@@ -122,6 +127,10 @@ async function fetchFromWordPress<T>(path: string): Promise<T> {
   const { apiUrl, username, appPassword } = getWordPressConfig();
   if (!apiUrl) {
     throw new Error('WordPress CMS not configured');
+  }
+
+  if (username && appPassword && typeof Buffer === 'undefined') {
+    throw new Error('Buffer is required for WordPress basic authentication');
   }
 
   const authHeader: Record<string, string> =
@@ -259,7 +268,8 @@ export async function getCategories(): Promise<string[]> {
 export async function getMagazines(): Promise<MagazineIssue[]> {
   try {
     if (getCmsProvider() === 'wordpress') {
-      const data = await fetchFromWordPress<WPPost[]>('/wp-json/wp/v2/magazine_issue?per_page=24&_embed=1');
+      const magazinePostType = getWordPressMagazinePostType();
+      const data = await fetchFromWordPress<WPPost[]>(`/wp-json/wp/v2/${magazinePostType}?per_page=24&_embed=1`);
       const mapped = data.map(mapWordPressMagazine);
       return mapped.length ? mapped : magazines;
     }

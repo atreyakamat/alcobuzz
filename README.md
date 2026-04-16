@@ -81,7 +81,7 @@ npm run build
    - `CMS_PROVIDER=wordpress`
    - `WORDPRESS_API_URL=https://your-domain.com`
    - `WORDPRESS_API_USER=editor-username`
-   - `WORDPRESS_API_APP_PASSWORD=xxxx xxxx xxxx xxxx`
+   - `WORDPRESS_API_APP_PASSWORD=xxxxxxxxxxxxxxxx` (use the app password value without spaces)
 3. Publish content in WordPress:
    - Posts for articles
    - Categories/Tags taxonomy

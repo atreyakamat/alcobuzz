@@ -8,6 +8,8 @@ const DEFAULT_ARTICLE_COVER =
 const DEFAULT_MAGAZINE_COVER =
   'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=900&q=80';
 const DEFAULT_MAGAZINE_PDF = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+const DEFAULT_ARTICLE_TITLE = 'Untitled Story';
+const DEFAULT_MAGAZINE_TITLE = 'Alcobuzz Issue';
 
 type WPRendered = { rendered: string };
 type WPTerm = { name: string; slug: string; taxonomy?: string };
@@ -61,7 +63,13 @@ function stripHtml(value: string | undefined): string {
   if (!value) {
     return '';
   }
-  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  return value
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function slugifyTag(tag: string): string {
@@ -147,7 +155,7 @@ function mapWordPressPost(post: WPPost): Article {
 
   return {
     id: post.id,
-    title: stripHtml(post.title?.rendered) || 'Untitled Story',
+    title: stripHtml(post.title?.rendered) || DEFAULT_ARTICLE_TITLE,
     slug: post.slug,
     excerpt: stripHtml(post.excerpt?.rendered) || 'Read the latest story on Alcobuzz.',
     content: post.content?.rendered ?? '<p>Content coming soon.</p>',
@@ -164,11 +172,11 @@ function getMagazinePdfUrl(post: WPPost): string {
   const acf = post.acf ?? {};
   const meta = post.meta ?? {};
   const values = [acf.pdfUrl, acf.pdf_url, meta.pdfUrl, meta.pdf_url].filter(Boolean);
-  return (values[0] as string | undefined) ?? DEFAULT_MAGAZINE_PDF;
+  return values[0] ?? DEFAULT_MAGAZINE_PDF;
 }
 
 function mapWordPressMagazine(post: WPPost): MagazineIssue {
-  const title = stripHtml(post.title?.rendered) || 'Alcobuzz Issue';
+  const title = stripHtml(post.title?.rendered) || DEFAULT_MAGAZINE_TITLE;
   return {
     issue: post.acf?.issue ?? post.slug,
     title,
@@ -217,9 +225,22 @@ export async function searchArticles(query: string, category?: string, tag?: str
 export async function getCategories(): Promise<string[]> {
   try {
     if (getCmsProvider() === 'wordpress') {
-      const data = await fetchFromWordPress<Array<{ name: string; slug: string }>>('/wp-json/wp/v2/categories?per_page=100');
+      let page = 1;
+      let hasMore = true;
+      const collected: Array<{ name: string; slug: string }> = [];
+
+      while (hasMore) {
+        const data = await fetchFromWordPress<Array<{ name: string; slug: string }>>(
+          `/wp-json/wp/v2/categories?per_page=100&page=${page}`
+        );
+
+        collected.push(...data);
+        hasMore = data.length === 100;
+        page += 1;
+      }
+
       const mapped = Array.from(
-        new Set(data.map((item) => normalizeCategory(item.slug) ?? normalizeCategory(item.name)).filter(Boolean))
+        new Set(collected.map((item) => normalizeCategory(item.slug) ?? normalizeCategory(item.name)).filter(Boolean))
       ) as string[];
       return mapped.length ? mapped : [...categories];
     }

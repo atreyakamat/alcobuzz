@@ -1,0 +1,14 @@
+{
+  "name": "alcobuzz",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @alcobuzz/web",
+    "build": "npm run build -w @alcobuzz/web",
+    "lint": "npm run lint -w @alcobuzz/web",
+    "test": "npm run test -w @alcobuzz/lib"
+  }
+}

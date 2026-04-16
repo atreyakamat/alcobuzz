@@ -1,18 +1,91 @@
 import { articles, categories, magazines } from './mock-data';
 import type { Article, MagazineIssue } from './types';
 
-const API_URL = process.env.STRAPI_API_URL;
-const API_TOKEN = process.env.STRAPI_API_TOKEN;
+type CmsProvider = 'strapi' | 'wordpress';
 
-async function fetchFromCMS<T>(path: string): Promise<T> {
-  if (!API_URL) {
-    throw new Error('CMS not configured');
+type WPRendered = { rendered: string };
+type WPTerm = { name: string; slug: string; taxonomy?: string };
+type WPAuthor = { name: string };
+type WPFeaturedMedia = { source_url: string };
+
+type WPEmbedded = {
+  author?: WPAuthor[];
+  'wp:featuredmedia'?: WPFeaturedMedia[];
+  'wp:term'?: WPTerm[][];
+};
+
+type WPPost = {
+  id: number;
+  slug: string;
+  date: string;
+  title: WPRendered;
+  excerpt?: WPRendered;
+  content?: WPRendered;
+  _embedded?: WPEmbedded;
+  acf?: {
+    issue?: string;
+    description?: string;
+    pdfUrl?: string;
+    pdf_url?: string;
+  };
+  meta?: Record<string, string | undefined>;
+};
+
+function getCmsProvider(): CmsProvider {
+  const value = process.env.CMS_PROVIDER?.toLowerCase();
+  return value === 'wordpress' ? 'wordpress' : 'strapi';
+}
+
+function getStrapiConfig() {
+  return {
+    apiUrl: process.env.STRAPI_API_URL,
+    apiToken: process.env.STRAPI_API_TOKEN
+  };
+}
+
+function getWordPressConfig() {
+  return {
+    apiUrl: process.env.WORDPRESS_API_URL,
+    username: process.env.WORDPRESS_API_USER,
+    appPassword: process.env.WORDPRESS_API_APP_PASSWORD
+  };
+}
+
+function stripHtml(value: string | undefined): string {
+  if (!value) {
+    return '';
   }
+  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
-  const response = await fetch(`${API_URL}${path}`, {
+function slugifyTag(tag: string): string {
+  return tag.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function normalizeCategory(value: string): Article['category'] | null {
+  const normalized = value.toLowerCase().trim();
+  const mapped = {
+    whiskey: 'whisky',
+    whisky: 'whisky',
+    agave: 'agave',
+    bars: 'bars',
+    bar: 'bars',
+    culture: 'culture',
+    industry: 'industry'
+  } as const;
+
+  return mapped[normalized as keyof typeof mapped] ?? null;
+}
+
+function getEmbeddedTerms(post: WPPost): WPTerm[] {
+  return post._embedded?.['wp:term']?.flatMap((group) => group) ?? [];
+}
+
+async function fetchJson<T>(url: string, headers: Record<string, string>): Promise<T> {
+  const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
-      ...(API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {})
+      ...headers
     }
   });
 
@@ -23,9 +96,80 @@ async function fetchFromCMS<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function fetchFromStrapi<T>(path: string): Promise<T> {
+  const { apiUrl, apiToken } = getStrapiConfig();
+  if (!apiUrl) {
+    throw new Error('Strapi CMS not configured');
+  }
+
+  return fetchJson<T>(`${apiUrl}${path}`, apiToken ? { Authorization: `Bearer ${apiToken}` } : {});
+}
+
+async function fetchFromWordPress<T>(path: string): Promise<T> {
+  const { apiUrl, username, appPassword } = getWordPressConfig();
+  if (!apiUrl) {
+    throw new Error('WordPress CMS not configured');
+  }
+
+  const authHeader: Record<string, string> =
+    username && appPassword
+      ? {
+          Authorization: `Basic ${Buffer.from(`${username}:${appPassword}`).toString('base64')}`
+        }
+      : {};
+
+  return fetchJson<T>(`${apiUrl}${path}`, authHeader);
+}
+
+function mapWordPressPost(post: WPPost): Article {
+  const terms = getEmbeddedTerms(post);
+  const category =
+    terms.map((term) => normalizeCategory(term.slug) ?? normalizeCategory(term.name)).find(Boolean) ?? 'culture';
+
+  const tags = Array.from(
+    new Set(
+      terms
+        .filter((term) => !normalizeCategory(term.slug) && !normalizeCategory(term.name))
+        .map((term) => slugifyTag(term.name))
+        .filter(Boolean)
+    )
+  );
+
+  return {
+    id: post.id,
+    title: stripHtml(post.title?.rendered) || 'Untitled Story',
+    slug: post.slug,
+    excerpt: stripHtml(post.excerpt?.rendered) || 'Read the latest story on Alcobuzz.',
+    content: post.content?.rendered ?? '<p>Content coming soon.</p>',
+    coverImage: post._embedded?.['wp:featuredmedia']?.[0]?.source_url ?? articles[0].coverImage,
+    author: post._embedded?.author?.[0]?.name ?? 'Alcobuzz Editorial',
+    tags,
+    category,
+    publishedAt: post.date
+  };
+}
+
+function mapWordPressMagazine(post: WPPost): MagazineIssue {
+  const title = stripHtml(post.title?.rendered) || 'Alcobuzz Issue';
+  return {
+    issue: post.acf?.issue ?? post.slug,
+    title,
+    description: post.acf?.description ?? (stripHtml(post.excerpt?.rendered) || `${title} digital issue`),
+    coverImage: post._embedded?.['wp:featuredmedia']?.[0]?.source_url ?? magazines[0].coverImage,
+    pdfUrl:
+      post.acf?.pdfUrl ?? post.acf?.pdf_url ?? post.meta?.pdfUrl ?? post.meta?.pdf_url ?? magazines[0].pdfUrl,
+    publishedAt: post.date
+  };
+}
+
 export async function getArticles(): Promise<Article[]> {
   try {
-    const data = await fetchFromCMS<{ data: Article[] }>('/api/articles');
+    if (getCmsProvider() === 'wordpress') {
+      const data = await fetchFromWordPress<WPPost[]>('/wp-json/wp/v2/posts?per_page=30&_embed=1');
+      return data.map(mapWordPressPost);
+    }
+
+    const data = await fetchFromStrapi<{ data: Article[] }>('/api/articles');
     return data.data;
   } catch {
     return articles;
@@ -54,12 +198,30 @@ export async function searchArticles(query: string, category?: string, tag?: str
 }
 
 export async function getCategories(): Promise<string[]> {
+  try {
+    if (getCmsProvider() === 'wordpress') {
+      const data = await fetchFromWordPress<Array<{ name: string; slug: string }>>('/wp-json/wp/v2/categories?per_page=100');
+      const mapped = Array.from(
+        new Set(data.map((item) => normalizeCategory(item.slug) ?? normalizeCategory(item.name)).filter(Boolean))
+      ) as string[];
+      return mapped.length ? mapped : [...categories];
+    }
+  } catch {
+    return [...categories];
+  }
+
   return [...categories];
 }
 
 export async function getMagazines(): Promise<MagazineIssue[]> {
   try {
-    const data = await fetchFromCMS<{ data: MagazineIssue[] }>('/api/magazines');
+    if (getCmsProvider() === 'wordpress') {
+      const data = await fetchFromWordPress<WPPost[]>('/wp-json/wp/v2/magazine_issue?per_page=24&_embed=1');
+      const mapped = data.map(mapWordPressMagazine);
+      return mapped.length ? mapped : magazines;
+    }
+
+    const data = await fetchFromStrapi<{ data: MagazineIssue[] }>('/api/magazines');
     return data.data;
   } catch {
     return magazines;

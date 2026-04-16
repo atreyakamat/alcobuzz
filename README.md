@@ -18,13 +18,13 @@ Production-ready monorepo scaffold for an editorial-first media publishing platf
 
 ## Implemented Features
 
-- Homepage: hero, trending/latest, category blocks, magazine spotlight
+- Homepage: Vogue-inspired editorial hero, trending/latest, category blocks, magazine spotlight
 - Articles: `/articles/[slug]`, SEO metadata, JSON-LD, tags, related content
 - Category pages: `/category/[slug]` with tag filtering + grid/list toggle
 - Magazine rack and issue detail pages
 - Flipbook reader: `/magazine/[issue]/read` using PDF.js + framer-motion transitions + mobile swipe
 - Search: global bar + `/search` with query/category/tag filtering
-- CMS integration: Strapi-ready API client with robust fallback data
+- CMS integration: Strapi + WordPress headless client support with robust fallback data
 - Integrations: Mailchimp newsletter API route, social-ready sharing hooks, GA script
 - Accessibility + responsive layout + loading + 404 fallback
 - Sitemap generation and image optimization via Next.js
@@ -41,10 +41,14 @@ Production-ready monorepo scaffold for an editorial-first media publishing platf
 
 Use `.env.example`:
 
-- `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_GA_ID`
+- `CMS_PROVIDER` (`strapi` or `wordpress`)
 - `STRAPI_API_URL`
 - `STRAPI_API_TOKEN`
+- `WORDPRESS_API_URL`
+- `WORDPRESS_API_USER`
+- `WORDPRESS_API_APP_PASSWORD`
+- `NEXT_PUBLIC_SITE_URL`
+- `NEXT_PUBLIC_GA_ID`
 - `CLOUDINARY_*`
 - `MAILCHIMP_*`
 
@@ -70,6 +74,20 @@ npm run lint
 npm run build
 ```
 
+## WordPress (Hostinger) Headless Integration
+
+1. In your Hostinger WordPress admin, enable REST API access and create an Application Password for an editor/admin user.
+2. Configure frontend env vars:
+   - `CMS_PROVIDER=wordpress`
+   - `WORDPRESS_API_URL=https://your-domain.com`
+   - `WORDPRESS_API_USER=editor-username`
+   - `WORDPRESS_API_APP_PASSWORD=xxxx xxxx xxxx xxxx`
+3. Publish content in WordPress:
+   - Posts for articles
+   - Categories/Tags taxonomy
+   - Optional custom post type `magazine_issue` for the digital rack
+4. Redeploy frontend on Vercel after updating env vars.
+
 ## Docker / Deployment
 
 ### Full local stack
@@ -92,6 +110,12 @@ Services:
 
 ### CMS hosting
 
-1. Deploy Strapi container with Postgres.
-2. Configure media provider (Cloudinary) in Strapi.
-3. Add production `STRAPI_API_URL` and `STRAPI_API_TOKEN` to Vercel.
+- **Strapi path:**
+  1. Deploy Strapi container with Postgres.
+  2. Configure media provider (Cloudinary) in Strapi.
+  3. Add production `STRAPI_API_URL` and `STRAPI_API_TOKEN` to Vercel.
+
+- **WordPress path (Hostinger-ready):**
+  1. Use Hostinger-managed WordPress.
+  2. Create application password credentials.
+  3. Add `WORDPRESS_*` variables and `CMS_PROVIDER=wordpress` in Vercel.

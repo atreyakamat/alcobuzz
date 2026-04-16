@@ -64,16 +64,11 @@ function stripHtml(value: string | undefined): string {
     return '';
   }
 
-  return value
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function slugifyTag(tag: string): string {
-  return tag.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+function slugify(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
 function normalizeCategory(value: string): Article['category'] | null {
@@ -92,7 +87,7 @@ function normalizeCategory(value: string): Article['category'] | null {
 }
 
 function getEmbeddedTerms(post: WPPost): WPTerm[] {
-  return post._embedded?.['wp:term']?.flatMap((group) => group) ?? [];
+  return post._embedded?.['wp:term']?.flatMap((termGroup) => termGroup) ?? [];
 }
 
 async function fetchJson<T>(url: string, headers: Record<string, string>): Promise<T> {
@@ -142,13 +137,19 @@ async function fetchFromWordPress<T>(path: string): Promise<T> {
 function mapWordPressPost(post: WPPost): Article {
   const terms = getEmbeddedTerms(post);
   const category =
-    terms.map((term) => normalizeCategory(term.slug) ?? normalizeCategory(term.name)).find(Boolean) ?? 'culture';
+    terms
+      .map((term) => {
+        const normalizedSlug = normalizeCategory(term.slug);
+        const normalizedName = normalizeCategory(term.name);
+        return normalizedSlug ?? normalizedName;
+      })
+      .find(Boolean) ?? 'culture';
 
   const tags = Array.from(
     new Set(
       terms
         .filter((term) => !normalizeCategory(term.slug) && !normalizeCategory(term.name))
-        .map((term) => slugifyTag(term.name))
+        .map((term) => slugify(term.name))
         .filter(Boolean)
     )
   );
@@ -171,8 +172,8 @@ function mapWordPressPost(post: WPPost): Article {
 function getMagazinePdfUrl(post: WPPost): string {
   const acf = post.acf ?? {};
   const meta = post.meta ?? {};
-  const values = [acf.pdfUrl, acf.pdf_url, meta.pdfUrl, meta.pdf_url].filter(Boolean);
-  return values[0] ?? DEFAULT_MAGAZINE_PDF;
+  const pdfUrlCandidates = [acf.pdfUrl, acf.pdf_url, meta.pdfUrl, meta.pdf_url].filter(Boolean);
+  return pdfUrlCandidates[0] ?? DEFAULT_MAGAZINE_PDF;
 }
 
 function mapWordPressMagazine(post: WPPost): MagazineIssue {
@@ -227,22 +228,26 @@ export async function getCategories(): Promise<string[]> {
     if (getCmsProvider() === 'wordpress') {
       let page = 1;
       let hasMore = true;
-      const collected: Array<{ name: string; slug: string }> = [];
+      const categoriesFromWordPress: Array<{ name: string; slug: string }> = [];
 
       while (hasMore) {
         const data = await fetchFromWordPress<Array<{ name: string; slug: string }>>(
           `/wp-json/wp/v2/categories?per_page=100&page=${page}`
         );
 
-        collected.push(...data);
+        categoriesFromWordPress.push(...data);
         hasMore = data.length === 100;
         page += 1;
       }
 
-      const mapped = Array.from(
-        new Set(collected.map((item) => normalizeCategory(item.slug) ?? normalizeCategory(item.name)).filter(Boolean))
+      const normalizedCategories = Array.from(
+        new Set(
+          categoriesFromWordPress
+            .map((category) => normalizeCategory(category.slug) ?? normalizeCategory(category.name))
+            .filter(Boolean)
+        )
       ) as string[];
-      return mapped.length ? mapped : [...categories];
+      return normalizedCategories.length ? normalizedCategories : [...categories];
     }
   } catch {
     return [...categories];

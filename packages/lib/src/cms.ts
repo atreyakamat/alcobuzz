@@ -3,6 +3,12 @@ import type { Article, MagazineIssue } from './types';
 
 type CmsProvider = 'strapi' | 'wordpress';
 
+const DEFAULT_ARTICLE_COVER =
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=1200&q=80';
+const DEFAULT_MAGAZINE_COVER =
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=900&q=80';
+const DEFAULT_MAGAZINE_PDF = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
 type WPRendered = { rendered: string };
 type WPTerm = { name: string; slug: string; taxonomy?: string };
 type WPAuthor = { name: string };
@@ -106,6 +112,10 @@ async function fetchFromStrapi<T>(path: string): Promise<T> {
 }
 
 async function fetchFromWordPress<T>(path: string): Promise<T> {
+  if (typeof window !== 'undefined') {
+    throw new Error('WordPress fetch is server-only');
+  }
+
   const { apiUrl, username, appPassword } = getWordPressConfig();
   if (!apiUrl) {
     throw new Error('WordPress CMS not configured');
@@ -141,12 +151,20 @@ function mapWordPressPost(post: WPPost): Article {
     slug: post.slug,
     excerpt: stripHtml(post.excerpt?.rendered) || 'Read the latest story on Alcobuzz.',
     content: post.content?.rendered ?? '<p>Content coming soon.</p>',
-    coverImage: post._embedded?.['wp:featuredmedia']?.[0]?.source_url ?? articles[0].coverImage,
+    coverImage: post._embedded?.['wp:featuredmedia']?.[0]?.source_url ?? DEFAULT_ARTICLE_COVER,
     author: post._embedded?.author?.[0]?.name ?? 'Alcobuzz Editorial',
     tags,
     category,
     publishedAt: post.date
   };
+}
+
+
+function getMagazinePdfUrl(post: WPPost): string {
+  const acf = post.acf ?? {};
+  const meta = post.meta ?? {};
+  const values = [acf.pdfUrl, acf.pdf_url, meta.pdfUrl, meta.pdf_url].filter(Boolean);
+  return (values[0] as string | undefined) ?? DEFAULT_MAGAZINE_PDF;
 }
 
 function mapWordPressMagazine(post: WPPost): MagazineIssue {
@@ -155,9 +173,8 @@ function mapWordPressMagazine(post: WPPost): MagazineIssue {
     issue: post.acf?.issue ?? post.slug,
     title,
     description: post.acf?.description ?? (stripHtml(post.excerpt?.rendered) || `${title} digital issue`),
-    coverImage: post._embedded?.['wp:featuredmedia']?.[0]?.source_url ?? magazines[0].coverImage,
-    pdfUrl:
-      post.acf?.pdfUrl ?? post.acf?.pdf_url ?? post.meta?.pdfUrl ?? post.meta?.pdf_url ?? magazines[0].pdfUrl,
+    coverImage: post._embedded?.['wp:featuredmedia']?.[0]?.source_url ?? DEFAULT_MAGAZINE_COVER,
+    pdfUrl: getMagazinePdfUrl(post),
     publishedAt: post.date
   };
 }
